@@ -7,23 +7,21 @@ at /etc/queries/{queryId}. This module parses those YAML files.
 Example YAML config for a query:
     pubsubName: agent-pubsub
     topicName: support.sla-breach
-    format: packed
     skipControlSignals: true
+    maxPayloadBytes: 204800
 """
 from __future__ import annotations
 
 import os
-from enum import Enum
 from io import TextIOWrapper
 
 import yaml
 from pydantic import BaseModel, Field
 
-
-class OutputFormat(str, Enum):
-    """How to deliver Drasi change events to agents."""
-    PACKED = "packed"    # Entire ChangeEvent as one message (all adds/updates/deletes together)
-    UNPACKED = "unpacked"  # One message per individual add, update, or delete
+# 200 KB — safely below the tightest hard broker limits (AWS SQS and Azure Service Bus
+# Standard are both fixed at 256 KB and cannot be raised). The 56 KB headroom accounts
+# for CloudEvent envelope fields and JSON encoding overhead.
+_DEFAULT_MAX_PAYLOAD_BYTES = 200 * 1024
 
 
 class RouterQueryConfig(BaseModel):
@@ -41,14 +39,19 @@ class RouterQueryConfig(BaseModel):
         alias="topicName",
         description="Dapr pub/sub topic to publish to (agents subscribe to this)",
     )
-    format: OutputFormat = Field(
-        default=OutputFormat.PACKED,
-        description="packed=one message per event, unpacked=one message per changed record",
-    )
     skip_control_signals: bool = Field(
         default=True,
         alias="skipControlSignals",
         description="If True, control signals (bootstrap, running, stopped) are not forwarded",
+    )
+    max_payload_bytes: int = Field(
+        default=_DEFAULT_MAX_PAYLOAD_BYTES,
+        alias="maxPayloadBytes",
+        description=(
+            "Maximum serialized payload size in bytes before the router refuses to publish. "
+            "Set this to match your broker's limit. "
+            "Defaults to 200 KB (safe floor for SQS and Azure Service Bus Standard)."
+        ),
     )
 
     model_config = {"populate_by_name": True}

@@ -7,12 +7,14 @@ spec:
   kind: DaprAgentsRouter
   properties:
     DefaultPubsubName: agent-pubsub
-    DefaultFormat: packed
     MCP_PORT: "3001"
   queries:
     # Example: route 'sla-breaches' query results to the support agent's topic
     sla-breaches: |
       pubsubName: agent-pubsub
       topicName: support.sla-breach
-      format: packed
       skipControlSignals: true
+      # maxPayloadBytes: 204800  # Default: 200 KB. Raise only if your broker supports larger
+      #                          # messages (e.g. Kafka, Azure Service Bus Premium, RabbitMQ).
+      #                          # Do NOT raise for AWS SQS or Azure Service Bus Standard —
+      #                          # both are hard-capped at 256 KB and cannot be configured higher.

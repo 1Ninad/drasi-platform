@@ -40,27 +40,26 @@ class DrasiAgentRouter:
     2. On each ChangeEvent, reads the per-query config (which pubsub/topic to publish to)
     3. Formats the event as a packed CloudEvent and publishes it to the agent topic
     4. Agents subscribed to that topic wake up and process the change
-
-    Example:
-        router = DrasiAgentRouter()
-        router.start()  # Blocks, processing events
     """
 
     def __init__(self, port: int = 80):
         self._port = port
+
+        # Step 1 - Inbound interface: HTTP server (DrasiReaction - from Drasi PY SDK) opens a port and waits for Drasi to POST ChangeEvents to it, and calls event handlers
         self._reaction = DrasiReaction(
             on_change_event=self._handle_change,
             on_control_event=self._handle_control,
             parse_query_configs=parse_query_config,
             port=port,
         )
-        # Populated as events arrive; shared with the MCP server for query discovery
         self._query_configs: dict[str, RouterQueryConfig] = {}
+
 
     def start(self):
         """Start the router. Blocks indefinitely, processing events."""
         logger.info("Starting Drasi Agent Router")
         self._reaction.start()
+
 
     async def _handle_change(self, event: ChangeEvent, raw_config: Any) -> None:
         """
